@@ -35,16 +35,13 @@ name=displace2024
 . ./cmd.sh
 . ./path.sh
 
-mkdir -p exp_pyannote_final
-
-
 ################################################################################
 # Prepare data directories
 ################################################################################
 if [ $stage -le 0 ]; then
   echo "$0: Preparing data directories..."
 
-  # dev
+ 
   if [ -d "$DISPLACE_DEV_DIR" ]; then 
   local/make_data_dir.py \
   --rttm-dir $DISPLACE_DEV_DIR/data/rttm_sd \
@@ -57,8 +54,7 @@ if [ $stage -le 0 ]; then
     echo "${DISPLACE_DEV_DIR} does not exist"
     exit 1
   fi
-  #echo "$0: stage 1 done"
-  # eval
+  
   if [ -d "$DISPLACE_EVAL_DIR" ]; then 
   local/make_data_dir.py \
     --rttm-dir $DISPLACE_EVAL_DIR/data/rttm_sd \
@@ -77,6 +73,14 @@ fi
 #####################################
 if [ $stage -le 1 ]; then
   echo "$0: Applying SAD model to DEV/EVAL..."
+  for dset in dev_fbank; do #dev_fbank
+    ../vad_benchmarking/run_pyannote_SAD.sh \
+      --nj $nj --stage $sad_decode_stage \
+      data/${name}_${dset} data/${name}_${dset}_seg \
+      ../vad_benchmarking/VAD_model/pytorch_model.bin
+    done
+
+
   for dset in eval_fbank; do #dev_fbank
     ../vad_benchmarking/run_pyannote_SAD.sh \
       --nj $nj --stage $sad_decode_stage \
@@ -90,6 +94,7 @@ fi
 ################################################################################
 period=0.25
 
+
 scoretype=laplacian
 outdevdir=exp_pyannote_final/${name}_diarization_nnet_1a_dev_fbank_spectral_laplacian_scaling10 # best results for dev
 outevaldir=exp_pyannote_final/${name}_diarization_nnet_1a_eval_fbank_spectral_laplacian_scaling10
@@ -98,7 +103,7 @@ outevaldir=exp_pyannote_final/${name}_diarization_nnet_1a_eval_fbank_spectral_la
 echo "$0: stage 0 and 1 done."
 
 if [ $stage -le 2 ]; then
-  
+ 
   echo "$0: Performing first-pass diarization of DEV..."
   local/diarize_fbank.sh \
     --nj $nj --stage $diarization_stage \
@@ -111,7 +116,7 @@ fi
 echo "stage 2 done"
 
 if [ $stage -le 3 ]; then
- 
+  
   echo "$0: Performing first-pass diarization of EVAL using threshold "
   echo "$0: obtained by tuning on DEV..."
   thresh=0.6
@@ -129,8 +134,9 @@ echo "stage 3 done"
 ################################################################################
 # Evaluate first-pass diarization.
 # ################################################################################
+
 if [ $stage -le 4 ]; then
-  echo "$0: Scoring first-pass diarization on DEV..."
+  echo "$0: Scoring first-pass diarization on DEV"
   local/diarization/score_diarization.sh \
     --scores-dir $outdevdir/scoring \
     $DISPLACE_DEV_DIR $outdevdir/per_file_rttm
@@ -206,7 +212,7 @@ else
   dubm_model=exp/xvec_init_gauss_1024_ivec_400/model/diag_ubm.pkl
   ie_model=exp/xvec_init_gauss_1024_ivec_400/model/ie.pkl
   PYTHON=/home/prachis/.conda/envs/pyannote/bin/python
- 
+
 
   outdevdir_vb=exp_pyannote_final/displace_diarization_nnet_1a_vbhmm_dev_spectral_laplacian_scaling10_overlap
   outevaldir_vb=exp_pyannote_final/displace_diarization_nnet_1a_vbhmm_eval_spectral_laplacian_scaling10_overlap
@@ -215,48 +221,48 @@ else
   loop=0.45
   maxiters=1
   echo "statScale=$statScale loop=$loop maxiters=$maxiters" 
+  
   if [ $stage -le 6 ]; then
-    echo "$0: Performing VB-HMM resegmentation of DEV..."
+      
+    echo "$0: Performing VB-HMM resegmentation of DEV"
     mkdir -p $outdevdir_vb
     pyannote_pretrained_model=../vad_benchmarking/VAD_model/pytorch_model.bin
-    # cp -r exp_full_final/displace_diarization_nnet_1a_vbhmm_dev_overlap/per_file_overlap $outdevdir_vb/
     local/resegment_vbhmm.sh \
-        --nj $nj --stage $vb_hmm_stage --statscale $statScale --loop $loop --max-iters $maxiters \
-        --overlap 1 --PYTHON $PYTHON \
-        --pyannote_pretrained_model $pyannote_pretrained_model \
-        data/${name}_dev_fbank $outdevdir/rttm \
-        $dubm_model $ie_model $outdevdir_vb/ 
-        
-       
+      --nj $nj --stage $vb_hmm_stage --statscale $statScale --loop $loop --max-iters $maxiters \
+      --overlap 1 --PYTHON $PYTHON \
+      --pyannote_pretrained_model $pyannote_pretrained_model \
+      data/${name}_dev_fbank $outdevdir/rttm \
+      $dubm_model $ie_model $outdevdir_vb 
   fi
+
 
   if [ $stage -le 7 ]; then
     echo "$0: Performing VB-HMM resegmentation of EVAL..."
     mkdir -p $outevaldir_vb
-   
     pyannote_pretrained_model=../vad_benchmarking/VAD_model/pytorch_model.bin
     local/resegment_vbhmm.sh \
-        --nj $decode_nj --stage $vb_hmm_stage \
-        --statscale $statScale --loop $loop --max-iters $maxiters \
-        --overlap 1 --PYTHON $PYTHON \
-        --pyannote_pretrained_model $pyannote_pretrained_model \
-        data/${name}_eval_fbank $outevaldir/rttm \
-        $dubm_model $ie_model $outevaldir_vb/
+      --nj $decode_nj --stage $vb_hmm_stage \
+      --statscale $statScale --loop $loop --max-iters $maxiters \
+      --overlap 1 --PYTHON $PYTHON \
+      --pyannote_pretrained_model $pyannote_pretrained_model \
+      data/${name}_eval_fbank $outevaldir/rttm \
+      $dubm_model $ie_model $outevaldir_vb
+
   fi
 
 
 
-  ################################################################################
-  # Evaluate VB-HMM resegmentation.
-  ################################################################################
-  echo "in the VBHMM scoring stage"
+    ################################################################################
+    # Evaluate VB-HMM resegmentation.
+    ################################################################################
+      # echo "in the VBHMM scoring stage "
   if [ $stage -le 8 ]; then
     echo "$0: Scoring VB-HMM resegmentation on DEV..."
     local/diarization/score_diarization.sh \
       --scores-dir $outdevdir_vb/scoring \
       $DISPLACE_DEV_DIR $outdevdir_vb/per_file_rttm
   fi
-
+    #done
 
   if [ $stage -le 9 ] && [ -d $DISPLACE_EVAL_DIR/data/rttm_sd ]; then
     if [ -d $DISPLACE_EVAL_DIR/data/rttm_sd/ ]; then
@@ -266,5 +272,4 @@ else
         $DISPLACE_EVAL_DIR $outevaldir_vb/per_file_rttm
     fi
   fi
-
 fi
