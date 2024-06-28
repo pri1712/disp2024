@@ -74,19 +74,19 @@ fi
 if [ $stage -le 1 ]; then
   echo "$0: Applying SAD model to DEV/EVAL..."
   for dset in dev_fbank; do #dev_fbank
-    ../vad_benchmarking/run_pyannote_SAD.sh \
+    ./vad_benchmarking/run_pyannote_SAD.sh \
       --nj $nj --stage $sad_decode_stage \
       data/${name}_${dset} data/${name}_${dset}_seg \
-      ../vad_benchmarking/VAD_model/pytorch_model.bin
-    done
+      ./vad_benchmarking/VAD_model/pytorch_model.bin
+  done
 
 
   for dset in eval_fbank; do #dev_fbank
-    ../vad_benchmarking/run_pyannote_SAD.sh \
+    ./vad_benchmarking/run_pyannote_SAD.sh \
       --nj $nj --stage $sad_decode_stage \
       data/${name}_${dset} data/${name}_${dset}_seg \
-      ../vad_benchmarking/VAD_model/pytorch_model.bin
-    done
+      ./vad_benchmarking/VAD_model/pytorch_model.bin
+  done
 fi
 
 ################################################################################
@@ -111,9 +111,10 @@ if [ $stage -le 2 ]; then
     --scoretype $scoretype \
     exp/xvector_nnet_1a_tdnn_fbank/ exp/xvector_nnet_1a_tdnn_fbank/plda_model_full \
     data/${name}_dev_fbank_seg/ $outdevdir
+  echo "stage 2 done"
 fi
 
-echo "stage 2 done"
+
 
 if [ $stage -le 3 ]; then
   
@@ -126,9 +127,10 @@ if [ $stage -le 3 ]; then
     --scoretype $scoretype \
     exp/xvector_nnet_1a_tdnn_fbank/ exp/xvector_nnet_1a_tdnn_fbank/plda_model_full \
     data/${name}_eval_fbank_seg/ $outevaldir
+  echo "stage 3 done"
 fi
 
-echo "stage 3 done"
+
 
 
 ################################################################################
@@ -168,18 +170,18 @@ if [ $overlap -eq 0 ]; then
     maxiters=1
     echo "statScale=$statScale loop=$loop maxiters=$maxiters" 
     local/resegment_vbhmm.sh \
-        --nj $nj --stage $vb_hmm_stage --statscale $statScale --loop $loop --max-iters $maxiters \
-        data/displace_dev_fbank_full $outdevdir/rttm \
-        $dubm_model $ie_model $outdevdir_vb/
+      --nj $nj --stage $vb_hmm_stage --statscale $statScale --loop $loop --max-iters $maxiters \
+      data/displace_dev_fbank_full $outdevdir/rttm \
+      $dubm_model $ie_model $outdevdir_vb/
   fi
-
+  
 
   if [ $stage -le 7 ]; then
     echo "$0: Performing VB-HMM resegmentation of EVAL..."
     local/resegment_vbhmm.sh \
-        --nj $decode_nj --stage $vb_hmm_stage \
-        data/displace_eval_fbank $outevaldir/rttm \
-        $dubm_model $ie_model $outevaldir_vb/
+      --nj $decode_nj --stage $vb_hmm_stage \
+      data/displace_eval_fbank $outevaldir/rttm \
+      $dubm_model $ie_model $outevaldir_vb/
   fi
 
 
@@ -226,7 +228,7 @@ else
       
     echo "$0: Performing VB-HMM resegmentation of DEV"
     mkdir -p $outdevdir_vb
-    pyannote_pretrained_model=../vad_benchmarking/VAD_model/pytorch_model.bin
+    pyannote_pretrained_model=vad_benchmarking/VAD_model/pytorch_model.bin
     local/resegment_vbhmm.sh \
       --nj $nj --stage $vb_hmm_stage --statscale $statScale --loop $loop --max-iters $maxiters \
       --overlap 1 --PYTHON $PYTHON \
@@ -239,7 +241,7 @@ else
   if [ $stage -le 7 ]; then
     echo "$0: Performing VB-HMM resegmentation of EVAL..."
     mkdir -p $outevaldir_vb
-    pyannote_pretrained_model=../vad_benchmarking/VAD_model/pytorch_model.bin
+    pyannote_pretrained_model=vad_benchmarking/VAD_model/pytorch_model.bin
     local/resegment_vbhmm.sh \
       --nj $decode_nj --stage $vb_hmm_stage \
       --statscale $statScale --loop $loop --max-iters $maxiters \
